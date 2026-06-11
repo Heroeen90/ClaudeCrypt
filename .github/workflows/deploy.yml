@@ -6,39 +6,26 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
 jobs:
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Generate Icons
-        run: |
-          sudo apt-get install -y librsvg2-bin
-          cat > /tmp/icon.svg << 'SVGEOF'
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-            <rect width="512" height="512" fill="#030308" rx="80"/>
-            <polygon points="256,60 460,175 460,337 256,452 52,337 52,175" fill="none" stroke="#00d2ff" stroke-width="16"/>
-            <polygon points="256,110 420,200 420,312 256,402 92,312 92,200" fill="none" stroke="#7b2fff" stroke-width="8" opacity="0.6"/>
-            <text x="256" y="290" text-anchor="middle" font-size="180" fill="#00d2ff" font-family="monospace">⬡</text>
-            <text x="256" y="480" text-anchor="middle" font-size="48" fill="#00d2ff" font-family="sans-serif" font-weight="bold">CC</text>
-          </svg>
-          SVGEOF
-          mkdir -p assets/icons
-          rsvg-convert -w 192 -h 192 /tmp/icon.svg -o assets/icons/icon-192.png
-          rsvg-convert -w 512 -h 512 /tmp/icon.svg -o assets/icons/icon-512.png
-
-      - name: Register Service Worker in HTML
-        run: |
-          sed -i 's|</body>|<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js")}</script></body>|' index.html
-
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
