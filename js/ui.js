@@ -4,11 +4,17 @@
 
 // --- التنقل بين الصفحات ---
 function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => {
+    p.classList.remove('active');
+    p.style.display = 'none';
+  });
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   const page = document.getElementById('page-' + name);
   const btn = document.querySelector(`.nav-btn[data-page="${name}"]`);
-  if (page) page.classList.add('active');
+  if (page) {
+    page.classList.add('active');
+    page.style.display = 'block';
+  }
   if (btn) btn.classList.add('active');
 }
 
