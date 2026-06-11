@@ -1,4 +1,4 @@
-// ===== ClaudeCrypt — نظام المصادقة (نسخة مُصلحة) =====
+// ===== ClaudeCrypt — نظام المصادقة =====
 
 'use strict';
 
@@ -150,7 +150,10 @@ const Auth = {
       app.classList.remove('hidden');
       app.style.opacity = '0';
       app.style.transition = 'opacity 0.3s ease';
-      setTimeout(() => { app.style.opacity = '1'; }, 50);
+      setTimeout(() => {
+        app.style.opacity = '1';
+        if (typeof onAppUnlocked === 'function') onAppUnlocked();
+      }, 50);
     }, 400);
     Stats.render();
     startClock();
