@@ -11,28 +11,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. سحب كود المشروع (تحديث إلى v4)
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # 2. إعداد بيئة Node.js (تحديث إلى v4)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      # 3. إعداد بيئة Java (تحديث إلى v4)
+      # تم تحديث إصدار الجافا إلى 17 هنا
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '11'
+          java-version: '17'
 
-      # 4. تثبيت Cordova
       - name: Install Cordova
         run: npm install -g cordova
 
-      # 5. إنشاء تطبيق الأندرويد وتغليف الملفات
       - name: Build Cordova Project
         run: |
           cordova create app com.roeen.claudecrypt ClaudeCrypt
@@ -42,7 +38,6 @@ jobs:
           cordova platform add android
           cordova build android
 
-      # 6. رفع ملف الـ APK النهائي (تحديث إلى v4 - هذا هو الذي تسبب بالخطأ)
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
