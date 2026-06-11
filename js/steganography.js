@@ -1,48 +1,43 @@
-// ===== ClaudeCrypt — Steganography Engine =====
-// إخفاء رسائل مشفرة داخل الصور باستخدام LSB
+// ===== ClaudeCrypt — Steganography Engine (نسخة مُصلحة) =====
 
 'use strict';
 
 const Steganography = {
 
-  // إخفاء نص داخل صورة باستخدام LSB (Least Significant Bit)
+  // إخفاء نص داخل صورة باستخدام LSB
   async hideMessage(imageData, message, password) {
-    // تشفير الرسالة أولاً
     const encrypted = await CryptoCore.encryptAESGCM(message, password);
     const fullMessage = encrypted + '<<END>>';
-
-    // تحويل الرسالة إلى bits
     const msgBytes = new TextEncoder().encode(fullMessage);
     const totalBits = msgBytes.length * 8;
-
-    // التحقق من سعة الصورة
     const maxBits = Math.floor((imageData.data.length / 4) * 3);
+
     if (totalBits > maxBits) {
-      throw new Error('الصورة صغيرة جداً لاستيعاب هذه الرسالة — جرب صورة أكبر');
+      throw new Error('الصورة صغيرة جداً — جرب صورة أكبر');
     }
 
     const pixels = new Uint8ClampedArray(imageData.data);
-    let bitIndex = 0;
 
     // تخزين طول الرسالة في أول 32 bit
-    const lengthBits = this.numberTo32Bits(msgBytes.length);
+    const msgLen = msgBytes.length;
     for (let i = 0; i < 32; i++) {
+      const bit = (msgLen >> (31 - i)) & 1;
       const pixelOffset = Math.floor(i / 3) * 4 + (i % 3);
-      pixels[pixelOffset] = (pixels[pixelOffset] & 0xFE) | lengthBits[i];
+      if (pixelOffset < pixels.length - 1) {
+        pixels[pixelOffset] = (pixels[pixelOffset] & 0xFE) | bit;
+      }
     }
-    bitIndex = 32;
 
-    // تخزين الرسالة
+    // تخزين بيانات الرسالة
     for (let byteIdx = 0; byteIdx < msgBytes.length; byteIdx++) {
       const byte = msgBytes[byteIdx];
       for (let bitPos = 7; bitPos >= 0; bitPos--) {
         const bit = (byte >> bitPos) & 1;
-        const channelIdx = bitIndex + 32;
+        const channelIdx = (byteIdx * 8 + (7 - bitPos)) + 32;
         const pixelOffset = Math.floor(channelIdx / 3) * 4 + (channelIdx % 3);
         if (pixelOffset < pixels.length - 1) {
           pixels[pixelOffset] = (pixels[pixelOffset] & 0xFE) | bit;
         }
-        bitIndex++;
       }
     }
 
@@ -54,14 +49,14 @@ const Steganography = {
     const pixels = imageData.data;
 
     // قراءة طول الرسالة من أول 32 bit
-    const lengthBits = [];
+    let msgLength = 0;
     for (let i = 0; i < 32; i++) {
       const pixelOffset = Math.floor(i / 3) * 4 + (i % 3);
-      lengthBits.push(pixels[pixelOffset] & 1);
+      const bit = pixels[pixelOffset] & 1;
+      msgLength = (msgLength << 1) | bit;
     }
-    const msgLength = this.bitsToNumber(lengthBits);
 
-    if (msgLength <= 0 || msgLength > 1000000) {
+    if (msgLength <= 0 || msgLength > 500000) {
       throw new Error('لا توجد رسالة مخفية في هذه الصورة');
     }
 
@@ -81,25 +76,36 @@ const Steganography = {
 
     const fullMessage = new TextDecoder().decode(msgBytes);
     const endIdx = fullMessage.indexOf('<<END>>');
-    if (endIdx === -1) throw new Error('تعذر قراءة الرسالة — قد يكون المفتاح خاطئاً');
+    if (endIdx === -1) {
+      throw new Error('تعذر قراءة الرسالة — قد يكون المفتاح خاطئاً أو الصورة تالفة');
+    }
 
     const encrypted = fullMessage.substring(0, endIdx);
-    return await CryptoCore.decryptAESGCM(encrypted, password);
+    try {
+      return await CryptoCore.decryptAESGCM(encrypted, password);
+    } catch (e) {
+      throw new Error('المفتاح خاطئ — تأكد من استخدام نفس المفتاح');
+    }
   },
 
-  // تحميل صورة على Canvas
+  // تحميل صورة على Canvas — مهم: نحفظ كـ PNG دائماً
   loadImageToCanvas(file) {
     return new Promise((resolve, reject) => {
+      // التحقق من نوع الملف
+      if (!file.type.startsWith('image/')) {
+        return reject(new Error('الملف ليس صورة'));
+      }
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
+          canvas.width = img.naturalWidth || img.width;
+          canvas.height = img.naturalHeight || img.height;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
           ctx.drawImage(img, 0, 0);
-          resolve({ canvas, ctx, imageData: ctx.getImageData(0, 0, img.width, img.height) });
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          resolve({ canvas, ctx, imageData });
         };
         img.onerror = () => reject(new Error('تعذر تحميل الصورة'));
         img.src = e.target.result;
@@ -109,31 +115,12 @@ const Steganography = {
     });
   },
 
-  // أدوات مساعدة
-  numberTo32Bits(num) {
-    const bits = [];
-    for (let i = 31; i >= 0; i--) {
-      bits.push((num >> i) & 1);
-    }
-    return bits;
-  },
-
-  bitsToNumber(bits) {
-    let num = 0;
-    for (let i = 0; i < bits.length; i++) {
-      num = (num << 1) | bits[i];
-    }
-    return num;
-  },
-
-  // حساب السعة المتاحة للصورة
   calculateCapacity(width, height) {
-    const maxBytes = Math.floor((width * height * 3) / 8) - 4;
-    return maxBytes;
+    return Math.floor((width * height * 3) / 8) - 4;
   }
 };
 
-// --- واجهة Steganography ---
+// --- حالة Steganography ---
 let stegoImageData = null;
 let stegoExtImageData = null;
 let stegoMode = 'hide';
@@ -180,14 +167,19 @@ async function hideInImage() {
   try {
     showToast('جاري إخفاء الرسالة...', '');
     const newImageData = await Steganography.hideMessage(stegoImageData, message, key);
+
+    // رسم النتيجة على canvas جديد
     const outputCanvas = document.getElementById('stegoOutput');
     outputCanvas.width = newImageData.width;
     outputCanvas.height = newImageData.height;
-    outputCanvas.getContext('2d').putImageData(newImageData, 0, 0);
+    const ctx = outputCanvas.getContext('2d', { willReadFrequently: true });
+    ctx.putImageData(newImageData, 0, 0);
     stegoOutputCanvas = outputCanvas;
+
     document.getElementById('stegoResult').classList.remove('hidden');
     Stats.increment('stego');
-    showToast('✅ تم إخفاء الرسالة بنجاح!', 'success');
+    logActivity('🖼️', 'إخفاء رسالة في صورة');
+    showToast('✅ تم إخفاء الرسالة — حمّل الصورة كـ PNG', 'success');
   } catch (e) {
     showToast('خطأ: ' + e.message, 'error');
   }
@@ -209,13 +201,18 @@ async function extractFromImage() {
   }
 }
 
+// تحميل الصورة دائماً كـ PNG للحفاظ على البيانات المخفية
 function downloadStegoImage() {
   if (!stegoOutputCanvas) return;
-  const link = document.createElement('a');
-  link.download = 'claudecrypt_stego_' + Date.now() + '.png';
-  link.href = stegoOutputCanvas.toDataURL('image/png');
-  link.click();
-  showToast('تم تحميل الصورة', 'success');
+  stegoOutputCanvas.toBlob((blob) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = 'claudecrypt_hidden_' + Date.now() + '.png';
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+    showToast('✅ تم التحميل كـ PNG — لا تحوّلها لـ JPG!', 'success');
+  }, 'image/png', 1.0);
 }
 
 window.Steganography = Steganography;
