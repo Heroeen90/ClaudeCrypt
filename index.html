@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>ClaudeCrypt — نظام التشفير المتقدم</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<!-- شاشة البصمة / القفل -->
+<div id="lockScreen" class="lock-screen active">
+  <canvas id="particleCanvas"></canvas>
+  <div class="lock-content">
+    <div class="lock-logo">
+      <div class="logo-ring"></div>
+      <div class="logo-icon">⬡</div>
+    </div>
+    <h1 class="lock-title">ClaudeCrypt</h1>
+    <p class="lock-subtitle">نظام التشفير الفوق-أمني</p>
+    <div class="lock-divider"></div>
+    <div id="lockMessage" class="lock-message">مرحباً — قم بإعداد بصمتك للمتابعة</div>
+    <button id="biometricBtn" class="biometric-btn">
+      <span class="biometric-icon">⬡</span>
+      <span id="biometricLabel">إعداد البصمة</span>
+    </button>
+    <div id="pinFallback" class="pin-fallback hidden">
+      <p class="pin-label">أدخل رمز الدخول</p>
+      <div class="pin-dots">
+        <span class="pin-dot" id="dot0"></span>
+        <span class="pin-dot" id="dot1"></span>
+        <span class="pin-dot" id="dot2"></span>
+        <span class="pin-dot" id="dot3"></span>
+        <span class="pin-dot" id="dot4"></span>
+        <span class="pin-dot" id="dot5"></span>
+      </div>
+      <div class="pin-grid">
+        <button class="pin-key" onclick="pinInput('1')">1</button>
+        <button class="pin-key" onclick="pinInput('2')">2</button>
+        <button class="pin-key" onclick="pinInput('3')">3</button>
+        <button class="pin-key" onclick="pinInput('4')">4</button>
+        <button class="pin-key" onclick="pinInput('5')">5</button>
+        <button class="pin-key" onclick="pinInput('6')">6</button>
+        <button class="pin-key" onclick="pinInput('7')">7</button>
+        <button class="pin-key" onclick="pinInput('8')">8</button>
+        <button class="pin-key" onclick="pinInput('9')">9</button>
+        <button class="pin-key pin-clear" onclick="pinClear()">✕</button>
+        <button class="pin-key" onclick="pinInput('0')">0</button>
+        <button class="pin-key pin-back" onclick="pinBackspace()">⌫</button>
+      </div>
+    </div>
+    <button id="usePinBtn" class="use-pin-btn" onclick="togglePinMode()">استخدام الرمز بدلاً من البصمة</button>
+  </div>
+</div>
+
+<!-- التطبيق الرئيسي -->
+<div id="app" class="app hidden">
+
+  <!-- شريط التنقل العلوي -->
+  <header class="app-header">
+    <div class="header-logo">⬡ ClaudeCrypt</div>
+    <div class="header-actions">
+      <button class="icon-btn" onclick="openGuide()" title="الدليل الإرشادي">?</button>
+      <button class="icon-btn" onclick="openVault()" title="الحافظة الآمنة">🔐</button>
+      <button class="icon-btn" onclick="lockApp()" title="قفل التطبيق">🔒</button>
+    </div>
+  </header>
+
+  <!-- شريط الحالة الأمنية -->
+  <div class="security-bar">
+    <div class="security-indicator">
+      <span class="security-dot active"></span>
+      <span class="security-text">النظام محمي — مستوى التشفير: AES-256-GCM</span>
+    </div>
+    <div class="security-clock" id="securityClock"></div>
+  </div>
+
+  <!-- التنقل الرئيسي -->
+  <nav class="main-nav">
+    <button class="nav-btn active" onclick="showPage('encrypt')" data-page="encrypt">
+      <span class="nav-icon">🔐</span>
+      <span class="nav-label">تشفير</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('decrypt')" data-page="decrypt">
+      <span class="nav-icon">🔓</span>
+      <span class="nav-label">فك تشفير</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('stego')" data-page="stego">
+      <span class="nav-icon">🖼️</span>
+      <span class="nav-label">إخفاء</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('analyze')" data-page="analyze">
+      <span class="nav-icon">🔬</span>
+      <span class="nav-label">تحليل</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('keygen')" data-page="keygen">
+      <span class="nav-icon">⚡</span>
+      <span class="nav-label">مفاتيح</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('stats')" data-page="stats">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">إحصاء</span>
+    </button>
+  </nav>
+
+  <!-- صفحة التشفير -->
+  <div id="page-encrypt" class="page active">
+    <div class="page-header">
+      <h2 class="page-title">🔐 محرك التشفير المتقدم</h2>
+      <p class="page-desc">تشفير النصوص والملفات بخوارزميات عسكرية متعددة الطبقات</p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">نوع التشفير</div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" onclick="setEncryptType('text', this)">نص</button>
+        <button class="toggle-btn" onclick="setEncryptType('file', this)">ملف</button>
+      </div>
+    </div>
+
+    <div id="encryptTextArea" class="card">
+      <div class="card-header">النص المراد تشفيره</div>
+      <textarea id="encryptInput" class="cyber-textarea" placeholder="أدخل النص السري هنا..."></textarea>
+      <div class="char-count"><span id="charCount">0</span> حرف</div>
+    </div>
+
+    <div id="encryptFileArea" class="card hidden">
+      <div class="card-header">الملف المراد تشفيره</div>
+      <div class="file-drop-zone" onclick="document.getElementById('fileInput').click()">
+        <div class="file-drop-icon">📁</div>
+        <div class="file-drop-text">اضغط لاختيار ملف</div>
+        <div class="file-drop-sub">يدعم جميع أنواع الملفات</div>
+      </div>
+      <input type="file" id="fileInput" class="hidden" onchange="handleFileSelect(this)" />
+      <div id="fileInfo" class="file-info hidden"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">المفتاح السري</div>
+      <div class="key-input-wrap">
+        <input type="password" id="encryptKey" class="cyber-input" placeholder="أدخل مفتاحك السري..." />
+        <button class="key-toggle" onclick="toggleKeyVisibility('encryptKey')">👁</button>
+      </div>
+      <div class="key-strength-bar">
+        <div id="keyStrengthFill" class="key-strength-fill"></div>
+      </div>
+      <div id="keyStrengthLabel" class="key-strength-label">قوة المفتاح: —</div>
+      <button class="gen-key-btn" onclick="generateRandomKey('encryptKey')">⚡ توليد مفتاح عشوائي قوي</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">الخوارزمية</div>
+      <select id="algorithmSelect" class="cyber-select">
+        <option value="aes256gcm">AES-256-GCM (موصى به)</option>
+        <option value="aes256cbc">AES-256-CBC</option>
+        <option value="chacha20">ChaCha20-Poly1305</option>
+        <option value="triple">تشفير ثلاثي الطبقات (الأقوى)</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="card-header">خيارات متقدمة</div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="useRiemann" />
+        <span class="toggle-slider"></span>
+        <span class="toggle-label">استخدام أصفار ريمان كطبقة إضافية</span>
+      </label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="timeLock" />
+        <span class="toggle-slider"></span>
+        <span class="toggle-label">تشفير زمني (كبسولة زمنية)</span>
+      </label>
+      <div id="timeLockOptions" class="time-lock-options hidden">
+        <input type="datetime-local" id="unlockDate" class="cyber-input" />
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="selfDestruct" />
+        <span class="toggle-slider"></span>
+        <span class="toggle-label">محو ذاتي بعد قراءة واحدة</span>
+      </label>
+    </div>
+
+    <button class="action-btn primary" onclick="performEncrypt()">
+      <span class="btn-icon">🔐</span>
+      <span>تشفير الآن</span>
+    </button>
+
+    <div id="encryptResult" class="result-card hidden">
+      <div class="result-header">
+        <span>✅ تم التشفير بنجاح</span>
+        <div class="result-actions">
+          <button onclick="copyResult()" class="result-btn">نسخ</button>
+          <button onclick="exportToVault()" class="result-btn vault-btn">💾 حفظ في الحافظة</button>
+          <button onclick="downloadResult()" class="result-btn">تحميل</button>
+          <button onclick="shareResult()" class="result-btn">مشاركة</button>
+        </div>
+      </div>
+      <div id="encryptOutput" class="result-output"></div>
+      <div class="result-meta">
+        <span id="resultAlgo"></span>
+        <span id="resultSize"></span>
+        <span id="resultTime"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- صفحة فك التشفير -->
+  <div id="page-decrypt" class="page hidden">
+    <div class="page-header">
+      <h2 class="page-title">🔓 محرك فك التشفير</h2>
+      <p class="page-desc">فك تشفير النصوص والملفات بأمان تام</p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">نوع فك التشفير</div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" onclick="setDecryptType('text', this)">نص مشفر</button>
+        <button class="toggle-btn" onclick="setDecryptType('file', this)">ملف مشفر</button>
+      </div>
+    </div>
+
+    <div id="decryptTextArea" class="card">
+      <div class="card-header">النص المشفر</div>
+      <textarea id="decryptInput" class="cyber-textarea" placeholder="الصق النص المشفر هنا..."></textarea>
+    </div>
+
+    <div id="decryptFileArea" class="card hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('decFileInput').click()">
+        <div class="file-drop-icon">🔒</div>
+        <div class="file-drop-text">اختر الملف المشفر</div>
+      </div>
+      <input type="file" id="decFileInput" class="hidden" onchange="handleDecFile(this)" />
+      <div id="decFileInfo" class="file-info hidden"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">المفتاح السري</div>
+      <div class="key-input-wrap">
+        <input type="password" id="decryptKey" class="cyber-input" placeholder="أدخل المفتاح..." />
+        <button class="key-toggle" onclick="toggleKeyVisibility('decryptKey')">👁</button>
+      </div>
+    </div>
+
+    <button class="action-btn secondary" onclick="performDecrypt()">
+      <span class="btn-icon">🔓</span>
+      <span>فك التشفير</span>
+    </button>
+
+    <div id="decryptResult" class="result-card hidden">
+      <div class="result-header">
+        <span>✅ تم فك التشفير بنجاح</span>
+        <div class="result-actions">
+          <button onclick="copyDecResult()" class="result-btn">نسخ</button>
+          <button onclick="downloadDecResult()" class="result-btn">تحميل</button>
+        </div>
+      </div>
+      <div id="decryptOutput" class="result-output"></div>
+    </div>
+  </div>
+
+  <!-- صفحة الإخفاء Steganography -->
+  <div id="page-stego" class="page hidden">
+    <div class="page-header">
+      <h2 class="page-title">🖼️ الإخفاء في الصور</h2>
+      <p class="page-desc">إخفاء رسائل مشفرة داخل صور عادية — لا يمكن اكتشافها بالعين</p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">العملية</div>
+      <div class="toggle-group">
+        <button class="toggle-btn active" onclick="setStegoMode('hide', this)">إخفاء رسالة</button>
+        <button class="toggle-btn" onclick="setStegoMode('extract', this)">استخراج رسالة</button>
+      </div>
+    </div>
+
+    <div id="stegoHide">
+      <div class="card">
+        <div class="card-header">الصورة الحاملة</div>
+        <div class="file-drop-zone" onclick="document.getElementById('stegoImg').click()">
+          <div class="file-drop-icon">🖼️</div>
+          <div class="file-drop-text">اختر صورة PNG أو JPG</div>
+        </div>
+        <input type="file" id="stegoImg" class="hidden" accept="image/*" onchange="loadStegoImage(this)" />
+        <canvas id="stegoCanvas" class="stego-preview hidden"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-header">الرسالة المراد إخفاؤها</div>
+        <textarea id="stegoMessage" class="cyber-textarea" placeholder="الرسالة السرية..."></textarea>
+      </div>
+      <div class="card">
+        <div class="card-header">مفتاح التشفير</div>
+        <input type="password" id="stegoKey" class="cyber-input" placeholder="مفتاح سري..." />
+      </div>
+      <button class="action-btn primary" onclick="hideInImage()">
+        <span>إخفاء الرسالة في الصورة</span>
+      </button>
+      <div id="stegoResult" class="result-card hidden">
+        <div class="result-header">
+          <span>✅ تم إخفاء الرسالة</span>
+          <button onclick="downloadStegoImage()" class="result-btn">تحميل الصورة</button>
+        </div>
+        <canvas id="stegoOutput" class="stego-preview"></canvas>
+      </div>
+    </div>
+
+    <div id="stegoExtract" class="hidden">
+      <div class="card">
+        <div class="card-header">الصورة المشبوهة</div>
+        <div class="file-drop-zone" onclick="document.getElementById('stegoExtImg').click()">
+          <div class="file-drop-icon">🔍</div>
+          <div class="file-drop-text">اختر الصورة لاستخراج الرسالة</div>
+        </div>
+        <input type="file" id="stegoExtImg" class="hidden" accept="image/*" onchange="loadExtractImage(this)" />
+      </div>
+      <div class="card">
+        <div class="card-header">مفتاح فك التشفير</div>
+        <input type="password" id="stegoExtKey" class="cyber-input" placeholder="مفتاح سري..." />
+      </div>
+      <button class="action-btn secondary" onclick="extractFromImage()">
+        <span>استخراج الرسالة المخفية</span>
+      </button>
+      <div id="stegoExtResult" class="result-card hidden">
+        <div class="result-header"><span>✅ تم استخراج الرسالة</span></div>
+        <div id="stegoExtOutput" class="result-output"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- صفحة التحليل -->
+  <div id="page-analyze" class="page hidden">
+    <div class="page-header">
+      <h2 class="page-title">🔬 محلل الشفرات</h2>
+      <p class="page-desc">تحليل وكسر الشفرات الكلاسيكية والحديثة</p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">النص للتحليل</div>
+      <textarea id="analyzeInput" class="cyber-textarea" placeholder="أدخل النص للتحليل..."></textarea>
+    </div>
+
+    <button class="action-btn primary" onclick="analyzeText()">
+      <span>🔬 تحليل تلقائي</span>
+    </button>
+
+    <div id="analyzeResult" class="hidden">
+      <div class="card">
+        <div class="card-header">نتائج التحليل</div>
+        <div id="analyzeOutput" class="analyze-output"></div>
+      </div>
+      <div class="card">
+        <div class="card-header">كسر الشفرات الكلاسيكية</div>
+        <div class="classic-breakers">
+          <button class="breaker-btn" onclick="breakCipher('caesar')">كسر Caesar</button>
+          <button class="breaker-btn" onclick="breakCipher('rot13')">فك ROT13</button>
+          <button class="breaker-btn" onclick="breakCipher('base64')">فك Base64</button>
+          <button class="breaker-btn" onclick="breakCipher('vigenere')">تحليل Vigenere</button>
+          <button class="breaker-btn" onclick="breakCipher('morse')">فك مورس</button>
+          <button class="breaker-btn" onclick="breakCipher('binary')">فك Binary</button>
+          <button class="breaker-btn" onclick="breakCipher('hex')">فك Hex</button>
+        </div>
+        <div id="breakerResult" class="result-output hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- صفحة توليد المفاتيح -->
+  <div id="page-keygen" class="page hidden">
+    <div class="page-header">
+      <h2 class="page-title">⚡ مولد المفاتيح المتقدم</h2>
+      <p class="page-desc">توليد مفاتيح تشفير عشوائية حقيقية بطرق متعددة</p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">نوع المفتاح</div>
+      <select id="keyType" class="cyber-select">
+        <option value="random">عشوائي قوي</option>
+        <option value="riemann">مشتق من أصفار ريمان</option>
+        <option value="passphrase">عبارة مرور</option>
+        <option value="gyroscope">من حركة الهاتف</option>
+        <option value="image">من صورة</option>
+        <option value="time">زمني متغير (TOTP)</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="card-header">طول المفتاح</div>
+      <input type="range" id="keyLength" min="16" max="128" value="32" class="cyber-range" oninput="updateKeyLength(this.value)" />
+      <div class="range-label"><span id="keyLengthLabel">32</span> حرف</div>
+    </div>
+
+    <div id="gyroArea" class="card hidden">
+      <div class="card-header">حرك هاتفك لتوليد المفتاح</div>
+      <div class="gyro-display">
+        <div class="gyro-ring" id="gyroRing"></div>
+        <div class="gyro-value" id="gyroValue">جاهز...</div>
+      </div>
+      <div id="gyroProgress" class="gyro-progress">
+        <div id="gyroFill" class="gyro-fill"></div>
+      </div>
+    </div>
+
+    <div id="imageKeyArea" class="card hidden">
+      <div class="file-drop-zone" onclick="document.getElementById('keyImageInput').click()">
+        <div class="file-drop-icon">🖼️</div>
+        <div class="file-drop-text">اختر صورة لاشتقاق المفتاح منها</div>
+      </div>
+      <input type="file" id="keyImageInput" accept="image/*" class="hidden" onchange="deriveKeyFromImage(this)" />
+    </div>
+
+    <button class="action-btn primary" onclick="generateKey()">
+      <span>⚡ توليد المفتاح</span>
+    </button>
+
+    <div id="keyResult" class="result-card hidden">
+      <div class="result-header">
+        <span>✅ المفتاح جاهز</span>
+        <div class="result-actions">
+          <button onclick="copyKey()" class="result-btn">نسخ</button>
+          <button onclick="saveKeyToVault()" class="result-btn vault-btn">💾 حفظ في الحافظة</button>
+        </div>
+      </div>
+      <div id="keyOutput" class="key-output"></div>
+      <div id="keyStrengthInfo" class="key-strength-info"></div>
+    </div>
+  </div>
+
+  <!-- صفحة الإحصاء -->
+  <div id="page-stats" class="page hidden">
+    <div class="page-header">
+      <h2 class="page-title">📊 لوحة الإحصاء والأمان</h2>
+      <p class="page-desc">مراقبة نشاط التطبيق ومستوى الأمان</p>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">🔐</div>
+        <div class="stat-value" id="statEncrypt">0</div>
+        <div class="stat-label">عملية تشفير</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🔓</div>
+        <div class="stat-value" id="statDecrypt">0</div>
+        <div class="stat-label">فك تشفير</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">🖼️</div>
+        <div class="stat-value" id="statStego">0</div>
+        <div class="stat-label">إخفاء في صور</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-value" id="statKeys">0</div>
+        <div class="stat-label">مفاتيح مولدة</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">مستوى الأمان الشخصي</div>
+      <div class="security-score-wrap">
+        <div class="security-score-ring">
+          <svg viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="54" fill="none" stroke="#1a1a2e" stroke-width="12"/>
+            <circle id="scoreCircle" cx="60" cy="60" r="54" fill="none" stroke="#00d2ff" stroke-width="12"
+              stroke-dasharray="339.3" stroke-dashoffset="339.3" stroke-linecap="round"
+              transform="rotate(-90 60 60)"/>
+          </svg>
+          <div class="score-value" id="scoreValue">0%</div>
+        </div>
+        <div class="score-tips" id="scoreTips"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">سجل النشاط</div>
+      <div id="activityLog" class="activity-log">
+        <div class="log-empty">لا يوجد نشاط بعد</div>
+      </div>
+    </div>
+
+    <button class="action-btn danger" onclick="clearStats()">
+      <span>🗑️ مسح كل الإحصاءات</span>
+    </button>
+  </div>
+
+</div>
+
+<!-- الحافظة الآمنة -->
+<div id="vaultModal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeVault()"></div>
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>🔐 الحافظة الآمنة</h3>
+      <button class="modal-close" onclick="closeVault()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="vaultList" class="vault-list"></div>
+      <div class="vault-empty" id="vaultEmpty">الحافظة فارغة</div>
+    </div>
+    <div class="modal-footer">
+      <button class="action-btn danger small" onclick="clearVault()">مسح الحافظة</button>
+    </div>
+  </div>
+</div>
+
+<!-- الدليل الإرشادي -->
+<div id="guideModal" class="modal hidden">
+  <div class="modal-overlay" onclick="closeGuide()"></div>
+  <div class="modal-content guide-content">
+    <div class="modal-header">
+      <h3>📖 الدليل الإرشادي</h3>
+      <button class="modal-close" onclick="closeGuide()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="guide-search">
+        <input type="text" id="guideSearch" class="cyber-input" placeholder="ابحث في الدليل..." oninput="searchGuide(this.value)" />
+      </div>
+      <div id="guideContent" class="guide-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- إشعار التوست -->
+<div id="toast" class="toast hidden"></div>
+
+<script src="js/crypto-core.js"></script>
+<script src="js/steganography.js"></script>
+<script src="js/analyzer.js"></script>
+<script src="js/keygen.js"></script>
+<script src="js/vault.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/guide.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
