@@ -1,10 +1,9 @@
 name: Build Android APK
 
-# هذا الأمر يخبر GitHub بتشغيل البناء عند أي تحديث في فرع main
 on:
   push:
     branches:
-      - main # إذا كان الفرع الرئيسي لديك اسمه master، قم بتغيير هذه الكلمة
+      - main 
 
 jobs:
   build:
@@ -12,19 +11,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. سحب كود المشروع من المستودع
+      # 1. سحب كود المشروع (تحديث إلى v4)
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      # 2. إعداد بيئة Node.js
+      # 2. إعداد بيئة Node.js (تحديث إلى v4)
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      # 3. إعداد بيئة Java (ضرورية لبرمجة الأندرويد)
+      # 3. إعداد بيئة Java (تحديث إلى v4)
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '11'
@@ -36,23 +35,16 @@ jobs:
       # 5. إنشاء تطبيق الأندرويد وتغليف الملفات
       - name: Build Cordova Project
         run: |
-          # إنشاء مشروع كوردوفا جديد
           cordova create app com.roeen.claudecrypt ClaudeCrypt
-          
-          # حذف الملفات الافتراضية
           rm -rf app/www/*
-          
-          # نسخ ملفات مشروعك (index, css, js...) إلى داخل مجلد التطبيق
           rsync -av --exclude='app' --exclude='.github' . app/www/
-          
-          # الدخول للمجلد وبناء الأندرويد
           cd app
           cordova platform add android
           cordova build android
 
-      # 6. رفع ملف الـ APK النهائي لتتمكن من تحميله
+      # 6. رفع ملف الـ APK النهائي (تحديث إلى v4 - هذا هو الذي تسبب بالخطأ)
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ClaudeCrypt-APK
           path: app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
