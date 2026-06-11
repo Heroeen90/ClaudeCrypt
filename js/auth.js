@@ -1,4 +1,3 @@
-cat > /home/claude/auth_fixed.js << 'ENDOFFILE'
 // ===== ClaudeCrypt — نظام المصادقة (نسخة مُصلحة) =====
 
 'use strict';
@@ -97,17 +96,16 @@ const Auth = {
     const confirmKey = 'cc_pin_confirm';
 
     if (!authData) {
-      // إعداد PIN جديد — الخطوة الأولى
       const salt = CryptoCore.randomHex(16);
       const hash = await this.hashPIN(pin, salt);
       localStorage.setItem(confirmKey, JSON.stringify({ hash, salt }));
+      this.saveAuth({ method: 'pin_pending' });
       document.getElementById('lockMessage').textContent = 'أعد إدخال الرمز للتأكيد';
       return;
     }
 
-    // تأكيد PIN جديد — الخطوة الثانية
     const confirmData = JSON.parse(localStorage.getItem(confirmKey) || 'null');
-    if (confirmData && authData.method !== 'pin') {
+    if (confirmData && authData.method === 'pin_pending') {
       const hash = await this.hashPIN(pin, confirmData.salt);
       if (hash !== confirmData.hash) {
         showToast('الرمز غير متطابق — ابدأ من جديد', 'error');
@@ -122,7 +120,6 @@ const Auth = {
       return;
     }
 
-    // تحقق عادي
     if (authData.method === 'pin') {
       const hash = await this.hashPIN(pin, authData.salt);
       if (hash === authData.hash) {
@@ -267,5 +264,4 @@ function initParticles() {
 }
 
 window.Auth = Auth;
-ENDOFFILE
-echo "✅ تم"
+
